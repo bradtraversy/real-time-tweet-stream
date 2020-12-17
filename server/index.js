@@ -20,7 +20,7 @@ const rulesURL = 'https://api.twitter.com/2/tweets/search/stream/rules'
 const streamURL =
   'https://api.twitter.com/2/tweets/search/stream?tweet.fields=public_metrics&expansions=author_id'
 
-const rules = [{ value: 'coding' }]
+const rules = [{ value: 'giveaway' }]
 
 // Get stream rules
 async function getRules() {
@@ -29,7 +29,7 @@ async function getRules() {
       Authorization: `Bearer ${TOKEN}`,
     },
   })
-
+  console.log(response.body)
   return response.body
 }
 
@@ -83,10 +83,12 @@ function streamTweets(socket) {
   stream.on('data', (data) => {
     try {
       const json = JSON.parse(data)
-      //   console.log(json)
+      console.log(json)
       socket.emit('tweet', json)
     } catch (error) {}
   })
+
+  return stream
 }
 
 io.on('connection', async () => {
@@ -108,7 +110,18 @@ io.on('connection', async () => {
     process.exit(1)
   }
 
-  streamTweets(io)
+  const filteredStream = streamTweets(io)
+
+  let timeout = 0
+  filteredStream.on('timeout', () => {
+    // Reconnect on error
+    console.warn('A connection error occurred. Reconnecting…')
+    setTimeout(() => {
+      timeout++
+      streamTweets(io)
+    }, 2 ** timeout)
+    streamTweets(io)
+  })
 })
 
 server.listen(PORT, () => console.log(`Listening on port ${PORT}`))
